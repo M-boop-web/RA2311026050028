@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSL Compiler Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary:    #D45769;
+    --primary-dk: #b8394d;
+    --primary-lt: #e87b8a;
+    --btn:        #D4CFC9;
+    --btn-hover:  #bfb9b2;
+    --bg:         #1a1215;
+    --surface:    #221519;
+    --panel:      #2a1b1e;
+    --border:     #3d2429;
+    --border-lt:  #5a3540;
+    --text:       #f0e8ea;
+    --muted:      #8a6870;
+    --success:    #7ec8a0;
+    --error:      #ff6b6b;
+    --warn:       #f0a050;
+    --ast-node:   #f4a0b0;
+    --ast-leaf:   #a0d4b0;
+    --ast-val:    #f0d080;
+    --c-keyword:  #e8a0c0;
+    --c-type:     #90c8f0;
+    --c-string:   #a0e0a0;
+    --c-comment:  #6a5058;
+    --c-number:   #f4c070;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 58px;
+    background: var(--surface);
+    border-bottom: 2px solid var(--primary);
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 30px rgba(212,87,105,0.2);
+  }
+
+  .logo { display: flex; align-items: baseline; gap: .7rem; }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--primary);
+    letter-spacing: .02em;
+    text-shadow: 0 0 30px rgba(212,87,105,0.5);
+  }
+  .logo-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    border-left: 1px solid var(--border-lt);
+    padding-left: .7rem;
+  }
+
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+  .badges { display: flex; gap: .4rem; }
+  .badge {
+    padding: .15rem .55rem;
+    border: 1px solid var(--border-lt);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .6rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-radius: 2px;
+  }
+  .badge.active { border-color: var(--primary); color: var(--primary); background: rgba(212,87,105,0.08); }
+
+  .theme-btn {
+    background: transparent;
+    border: 1px solid var(--border-lt);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .65rem;
+    padding: .25rem .6rem;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: .08em;
+    transition: all .2s;
+  }
+  .theme-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* ── Metrics bar ── */
+  .metrics-bar {
+    display: flex; gap: 1.5rem; align-items: center;
+    padding: .35rem 1.5rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .62rem;
+    color: var(--muted);
+    letter-spacing: .06em;
+  }
+  .metric { display: flex; gap: .4rem; align-items: center; }
+  .metric-val { color: var(--btn); font-weight: 600; }
+
+  /* ── Layout ── */
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    grid-template-areas:
+      "toolbar toolbar"
+      "editor  panels"
+      "editor  output";
+    height: calc(100vh - 94px);
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    grid-area: toolbar;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .55rem 1.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .btn-run {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .45rem 1.5rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: .75rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s;
+    box-shadow: 0 2px 12px rgba(212,87,105,0.35);
+  }
+  .btn-run:hover { background: var(--primary-lt); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,87,105,0.5); }
+  .btn-run:active { transform: translateY(0); }
+  .btn-run.loading { opacity: .7; cursor: wait; }
+
+  .btn-secondary {
+    padding: .45rem .9rem;
+    background: var(--btn);
+    border: none;
+    color: #2a1b1e;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s;
+  }
+  .btn-secondary:hover { background: var(--btn-hover); }
+
+  .btn-outline {
+    padding: .45rem .9rem;
+    background: transparent;
+    border: 1px solid var(--border-lt);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .7rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s;
+  }
+  .btn-outline:hover { border-color: var(--btn); color: var(--btn); }
+
+  .pipeline {
+    display: flex; align-items: center; gap: .35rem; margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .65rem; color: var(--muted); letter-spacing: .05em;
+  }
+  .pip-step {
+    padding: .2rem .5rem;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    transition: all .3s;
+  }
+  .pip-step.active { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 10px rgba(212,87,105,0.35); background: rgba(212,87,105,0.08); }
+  .pip-step.done   { border-color: var(--success); color: var(--success); }
+  .pip-step.error  { border-color: var(--error); color: var(--error); }
+  .pip-arrow { color: var(--border-lt); }
+
+  /* ── Editor pane ── */
+  .editor-pane {
+    grid-area: editor;
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .pane-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .35rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .65rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .pane-header .lang-tag { color: var(--primary); font-weight: 700; }
+
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .line-nums {
+    padding: 1rem .5rem 1rem .75rem;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .82rem;
+    line-height: 1.7;
+    color: var(--muted);
+    text-align: right;
+    user-select: none;
+    min-width: 2.8rem;
+    overflow: hidden;
+  }
+
+  #editor {
+    flex: 1;
+    padding: 1rem 1.2rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .82rem;
+    line-height: 1.7;
+    border: none; outline: none; resize: none;
+    tab-size: 2;
+    caret-color: var(--primary);
+    overflow-y: scroll;
+  }
+  #editor::selection { background: rgba(212,87,105,0.25); }
+
+  .status-bar {
+    padding: .22rem 1rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .6rem;
+    letter-spacing: .05em;
+    color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .status-ok  { color: var(--success); }
+  .status-err { color: var(--error); }
+
+  /* ── Right panels ── */
+  .right-panels {
+    grid-area: panels;
+    display: flex; flex-direction: column;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: .4rem 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .65rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-content {
+    flex: 1; overflow: auto;
+    display: none;
+    padding: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .78rem;
+    line-height: 1.6;
+    background: var(--bg);
+  }
+  .tab-content.active { display: block; }
+
+  /* ── Output pane ── */
+  .output-pane {
+    grid-area: output;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  #output-content {
+    flex: 1; overflow: auto;
+    padding: 1rem 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .8rem;
+    line-height: 1.65;
+    background: var(--bg);
+    white-space: pre-wrap;
+  }
+
+  /* ── Content styling ── */
+  .c-keyword  { color: var(--c-keyword); }
+  .c-type     { color: var(--c-type); }
+  .c-string   { color: var(--c-string); }
+  .c-comment  { color: var(--c-comment); font-style: italic; }
+  .c-number   { color: var(--c-number); }
+
+  .ast-line { white-space: pre; color: var(--muted); }
+  .ast-node { color: var(--ast-node); }
+  .ast-leaf { color: var(--ast-leaf); }
+
+  .out-line { color: var(--primary-lt); }
+
+  .placeholder {
+    color: var(--muted);
+    font-size: .78rem;
+    padding: 2.5rem;
+    text-align: center;
+    letter-spacing: .04em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .placeholder .icon { font-size: 1.8rem; margin-bottom: .5rem; display: block; }
+
+  .error-box {
+    margin: 1rem;
+    padding: 1rem;
+    border-left: 3px solid var(--error);
+    background: rgba(255,107,107,.06);
+    color: #ffb0b0;
+    font-size: .78rem;
+    white-space: pre-wrap;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .error-box .err-title {
+    font-weight: 700;
+    margin-bottom: .5rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--error);
+  }
+
+  /* ── Token chips ── */
+  .token-grid { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem; }
+  .token-chip {
+    padding: .15rem .5rem;
+    border-radius: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    cursor: default;
+    border: 1px solid transparent;
+    transition: transform .1s;
+  }
+  .token-chip:hover { transform: scale(1.05); }
+  .tok-keyword { background: rgba(212,87,105,.15); color: var(--primary); border-color: rgba(212,87,105,.3); }
+  .tok-ident   { background: rgba(212,207,201,.1); color: var(--btn); border-color: rgba(212,207,201,.2); }
+  .tok-number  { background: rgba(244,192,112,.1); color: var(--c-number); border-color: rgba(244,192,112,.2); }
+  .tok-string  { background: rgba(160,224,160,.1); color: var(--c-string); border-color: rgba(160,224,160,.2); }
+  .tok-op      { background: rgba(144,200,240,.1); color: var(--c-type); border-color: rgba(144,200,240,.2); }
+  .tok-type    { background: rgba(232,160,192,.1); color: var(--c-keyword); border-color: rgba(232,160,192,.2); }
+  .tok-punct   { background: rgba(138,104,112,.15); color: var(--muted); border-color: rgba(138,104,112,.3); }
+  .tok-legend  { padding: .5rem 1rem; font-size: .6rem; color: var(--muted); border-top: 1px solid var(--border); margin-top: .5rem; }
+
+  /* ── Symbol table ── */
+  .sym-table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; }
+  .sym-table th { text-align: left; padding: .4rem .75rem; background: var(--surface); color: var(--primary); border-bottom: 1px solid var(--border-lt); letter-spacing: .08em; text-transform: uppercase; font-size: .62rem; }
+  .sym-table td { padding: .35rem .75rem; border-bottom: 1px solid var(--border); color: var(--text); }
+  .sym-table tr:hover td { background: rgba(212,87,105,.05); }
+  .sym-int   { color: var(--c-type); }
+  .sym-float { color: var(--c-number); }
+  .sym-string { color: var(--c-string); }
+
+  /* ── Samples modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(26,18,21,0.85);
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; align-items: center; justify-content: center; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-lt);
+    border-top: 3px solid var(--primary);
+    width: 560px; max-height: 72vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--primary); }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2rem; }
+  .modal-close:hover { color: var(--text); }
+  .sample-list { overflow-y: auto; flex: 1; }
+  .sample-item { padding: .75rem 1.5rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+  .sample-item:hover { background: rgba(212,87,105,0.07); }
+  .sample-name { font-family: 'IBM Plex Mono', monospace; font-size: .75rem; font-weight: 700; color: var(--primary); letter-spacing: .06em; margin-bottom: .25rem; }
+  .sample-desc { font-size: .72rem; color: var(--muted); }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 11px; height: 11px; border: 2px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+
+  /* ── Scrollbars ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-lt); border-radius: 3px; }
+
+  /* ── Light theme ── */
+  body.light {
+    --bg:       #faf7f5;
+    --surface:  #f2eded;
+    --panel:    #ede6e8;
+    --border:   #d8c8cc;
+    --border-lt:#c0a8b0;
+    --text:     #2a1b1e;
+    --muted:    #8a6870;
+    --c-comment:#b0949a;
+  }
+  body.light #editor { color: #2a1b1e; }
+
+  @media (max-width: 800px) {
+    .workspace { grid-template-columns: 1fr; grid-template-areas: "toolbar" "editor" "panels" "output"; height: auto; }
+    .editor-pane { min-height: 280px; }
+    #editor { min-height: 240px; }
+    .pipeline { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Samples Modal -->
+<div class="modal-overlay" id="samplesModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Sample Programs</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="sample-list" id="sampleList"></div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <span class="logo-text">DSL Studio</span>
+    <span class="logo-sub">Compiler · v1.0</span>
+  </div>
+  <div class="header-right">
+    <div class="badges">
+      <span class="badge active">Flex</span>
+      <span class="badge active">Bison</span>
+      <span class="badge active">AST</span>
+      <span class="badge active">CodeGen</span>
+      <span class="badge active">GCC</span>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">☀ THEME</button>
+  </div>
+</header>
+
+<div class="metrics-bar">
+  <div class="metric">TOKENS: <span class="metric-val" id="metTokens">—</span></div>
+  <div class="metric">LINES: <span class="metric-val" id="metLines">—</span></div>
+  <div class="metric">VARS: <span class="metric-val" id="metVars">—</span></div>
+  <div class="metric">COMPILE TIME: <span class="metric-val" id="metTime">—</span></div>
+  <div class="metric" style="margin-left:auto;font-size:.58rem;color:var(--muted)">DSL v1.0 · UTF-8 · LF</div>
+</div>
+
+<div class="workspace">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn-run" id="runBtn" onclick="runCompiler()">
+      <span id="runIcon">▶</span>
+      <span id="runLabel">COMPILE &amp; RUN</span>
+    </button>
+    <button class="btn-secondary" onclick="clearAll()">CLEAR</button>
+    <button class="btn-outline" onclick="openModal()">⊞ SAMPLES</button>
+    <button class="btn-outline" onclick="copyCode()">⎘ COPY</button>
+
+    <div class="pipeline">
+      <span class="pip-step" id="pip-lex">LEXER</span>
+      <span class="pip-arrow">→</span>
+      <span class="pip-step" id="pip-parse">PARSER</span>
+      <span class="pip-arrow">→</span>
+      <span class="pip-step" id="pip-ast">AST</span>
+      <span class="pip-arrow">→</span>
+      <span class="pip-step" id="pip-codegen">CODEGEN</span>
+      <span class="pip-arrow">→</span>
+      <span class="pip-step" id="pip-gcc">GCC</span>
+      <span class="pip-arrow">→</span>
+      <span class="pip-step" id="pip-exec">EXEC</span>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-pane">
+    <div class="pane-header">
+      <span>SOURCE <span class="lang-tag">.dsl</span></span>
+      <span id="cursorPos">Ln 1, Col 1</span>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="lineNums"></div>
+      <textarea id="editor" spellcheck="false">{{ default_dsl }}</textarea>
+    </div>
+    <div class="status-bar">
+      <span id="editorStatus">ready</span>
+      <span>DSL v1.0 · UTF-8</span>
+    </div>
+  </div>
+
+  <!-- Right panels -->
+  <div class="right-panels">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('ast')">AST Tree</div>
+      <div class="tab" onclick="switchTab('gen')">Generated C</div>
+      <div class="tab" onclick="switchTab('tokens')">Tokens</div>
+      <div class="tab" onclick="switchTab('symbols')">Symbols</div>
+    </div>
+    <div class="tab-content active" id="tab-ast">
+      <div class="placeholder"><span class="icon">🌳</span>AST will appear after compilation</div>
+    </div>
+    <div class="tab-content" id="tab-gen">
+      <div class="placeholder"><span class="icon">⚙️</span>Generated C code will appear here</div>
+    </div>
+    <div class="tab-content" id="tab-tokens">
+      <div class="placeholder"><span class="icon">🔤</span>Token stream — updates as you type</div>
+    </div>
+    <div class="tab-content" id="tab-symbols">
+      <div class="placeholder"><span class="icon">📋</span>Symbol table will appear here</div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="output-pane">
+    <div class="pane-header">
+      <span>PROGRAM OUTPUT</span>
+      <span id="execTime" style="color:var(--muted)"></span>
+    </div>
+    <div id="output-content">
+      <div class="placeholder"><span class="icon">💻</span>Run your DSL program to see output</div>
+    </div>
+    <div class="status-bar">
+      <span id="outputStatus">idle</span>
+      <span id="outputMeta" style="color:var(--muted)"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── SAMPLES ── */
+const SAMPLES = [
+  { name:"Hello World", desc:"Basic string variable and print",
+    code:`// Hello World\nlet greeting string = "Hello, World!";\nlet name string = "DSL Compiler";\nprint(greeting);\nprint(name);` },
+  { name:"Arithmetic Operations", desc:"Integer arithmetic with all operators",
+    code:`// Arithmetic Demo\nlet a int = 42;\nlet b int = 8;\nlet sum      int = a + b;\nlet diff     int = a - b;\nlet product  int = a * b;\nlet quotient int = a / b;\nprint(sum);\nprint(diff);\nprint(product);\nprint(quotient);\nprint(a, b, sum);` },
+  { name:"Float Geometry", desc:"Circle area & circumference using floats",
+    code:`// Geometry\nlet pi     float = 3.14159;\nlet radius float = 7.5;\nlet area   float = pi * radius * radius;\nlet circ   float = 2.0 * pi * radius;\nlet lbl1 string = "Area =";\nlet lbl2 string = "Circumference =";\nprint(lbl1, area);\nprint(lbl2, circ);` },
+  { name:"Fibonacci (Unrolled)", desc:"8 terms of the Fibonacci sequence",
+    code:`// Fibonacci — 8 terms\nlet f0 int = 0;\nlet f1 int = 1;\nlet f2 int = f0 + f1;\nlet f3 int = f1 + f2;\nlet f4 int = f2 + f3;\nlet f5 int = f3 + f4;\nlet f6 int = f4 + f5;\nlet f7 int = f5 + f6;\nprint(f0, f1, f2, f3, f4, f5, f6, f7);` },
+  { name:"Operator Precedence", desc:"Parenthesised vs raw expressions",
+    code:`// Precedence\nlet v1 int = 2 + 3 * 4;\nlet v2 int = (2 + 3) * 4;\nlet v3 int = 10 - 2 * 3;\nlet v4 int = (10 - 2) * 3;\nprint(v1, v2);\nprint(v3, v4);` },
+  { name:"Running Total", desc:"Accumulator pattern via reassignment",
+    code:`// Running total\nlet total int = 0;\ntotal = total + 10;\ntotal = total + 25;\ntotal = total + 7;\ntotal = total - 3;\nlet msg string = "Final total:";\nprint(msg, total);` }
+];
+
+function openModal() {
+  document.getElementById('sampleList').innerHTML = SAMPLES.map((s,i) => `
+    <div class="sample-item" onclick="loadSample(${i})">
+      <div class="sample-name">// ${s.name}</div>
+      <div class="sample-desc">${s.desc}</div>
+    </div>`).join('');
+  document.getElementById('samplesModal').classList.add('open');
+}
+function closeModal() { document.getElementById('samplesModal').classList.remove('open'); }
+function loadSample(i) {
+  document.getElementById('editor').value = SAMPLES[i].code;
+  closeModal(); updateLineNums(); liveTokenise();
+}
+document.getElementById('samplesModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+/* ── THEME ── */
+function toggleTheme() { document.body.classList.toggle('light'); }
+
+/* ── COPY ── */
+async function copyCode() {
+  try {
+    await navigator.clipboard.writeText(document.getElementById('editor').value);
+    const orig = event.target.textContent;
+    event.target.textContent = '✓ COPIED';
+    setTimeout(()=>event.target.textContent=orig, 1500);
+  } catch(e){}
+}
+
+/* ── LINE NUMBERS ── */
+const editor = document.getElementById('editor');
+const lineNums = document.getElementById('lineNums');
+
+function updateLineNums() {
+  const lines = editor.value.split('\n').length;
+  lineNums.innerHTML = Array.from({length:lines},(_,i)=>`<div>${i+1}</div>`).join('');
+  document.getElementById('metLines').textContent = lines;
+}
+editor.addEventListener('input', ()=>{ updateLineNums(); liveTokenise(); });
+editor.addEventListener('scroll', ()=>{ lineNums.scrollTop = editor.scrollTop; });
+editor.addEventListener('keyup', updateCursor);
+editor.addEventListener('click', updateCursor);
+
+function updateCursor() {
+  const val = editor.value.substring(0, editor.selectionStart);
+  const lines = val.split('\n');
+  document.getElementById('cursorPos').textContent = `Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
+}
+
+editor.addEventListener('keydown', e => {
+  if(e.key==='Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart;
+    editor.value = editor.value.substring(0,s)+'  '+editor.value.substring(editor.selectionEnd);
+    editor.selectionStart = editor.selectionEnd = s+2;
+    updateLineNums();
+  }
+});
+updateLineNums();
+
+/* ── LIVE TOKENISER ── */
+const KEYWORDS = new Set(['let','print','int','float','string']);
+const TYPES    = new Set(['int','float','string']);
+
+function liveTokenise() {
+  const src = editor.value;
+  const tokens = [];
+  let i = 0;
+  while(i < src.length) {
+    if(/\s/.test(src[i])){i++;continue;}
+    if(src[i]==='/'&&src[i+1]==='/'){while(i<src.length&&src[i]!=='\n')i++;continue;}
+    if(src[i]==='"'){let j=i+1;while(j<src.length&&src[j]!=='"')j++;tokens.push({type:'string',val:src.slice(i,j+1)});i=j+1;continue;}
+    if(/\d/.test(src[i])||(src[i]==='.'&&/\d/.test(src[i+1]))){let j=i;while(j<src.length&&/[\d.]/.test(src[j]))j++;tokens.push({type:'number',val:src.slice(i,j)});i=j;continue;}
+    if(/[a-zA-Z_]/.test(src[i])){let j=i;while(j<src.length&&/\w/.test(src[j]))j++;const w=src.slice(i,j);if(TYPES.has(w))tokens.push({type:'type',val:w});else if(KEYWORDS.has(w))tokens.push({type:'keyword',val:w});else tokens.push({type:'ident',val:w});i=j;continue;}
+    if(/[+\-*/=<>!]/.test(src[i])){tokens.push({type:'op',val:src[i]});i++;continue;}
+    tokens.push({type:'punct',val:src[i]});i++;
+  }
+  document.getElementById('metTokens').textContent = tokens.length;
+  let vars=0;
+  for(let t=0;t<tokens.length-1;t++){if(tokens[t].type==='keyword'&&tokens[t].val==='let')vars++;}
+  document.getElementById('metVars').textContent = vars;
+  if(document.getElementById('tab-tokens').classList.contains('active')) renderTokens(tokens);
+  if(document.getElementById('tab-symbols').classList.contains('active')) renderSymbolTable(buildSymbolTable(tokens));
+  window._lastTokens = tokens;
+}
+
+function renderTokens(tokens) {
+  const el = document.getElementById('tab-tokens');
+  if(!tokens||tokens.length===0){el.innerHTML=`<div class="placeholder"><span class="icon">🔤</span>Start typing to see tokens</div>`;return;}
+  el.innerHTML = `<div class="token-grid">${tokens.map(t=>`<span class="token-chip tok-${t.type}" title="${t.type}">${escHtml(t.val)}</span>`).join('')}</div>
+    <div class="tok-legend">${tokens.length} tokens &nbsp;·&nbsp;
+      <span style="color:var(--primary)">■</span> keyword &nbsp;
+      <span style="color:var(--btn)">■</span> ident &nbsp;
+      <span style="color:var(--c-keyword)">■</span> type &nbsp;
+      <span style="color:var(--c-string)">■</span> string &nbsp;
+      <span style="color:var(--c-number)">■</span> number
+    </div>`;
+}
+
+function buildSymbolTable(tokens) {
+  const syms=[];
+  for(let i=0;i<tokens.length;i++){
+    if(tokens[i].type==='keyword'&&tokens[i].val==='let'){
+      const name=tokens[i+1]?.val||'?';
+      const type=tokens[i+2]?.val||'?';
+      let j=i+4; const parts=[];
+      while(j<tokens.length&&tokens[j].val!==';'){parts.push(tokens[j].val);j++;}
+      syms.push({name,type,value:parts.join(' ')});
+    }
+  }
+  return syms;
+}
+
+function renderSymbolTable(syms) {
+  const el = document.getElementById('tab-symbols');
+  if(!syms||syms.length===0){el.innerHTML=`<div class="placeholder"><span class="icon">📋</span>No variables declared yet</div>`;return;}
+  el.innerHTML=`<table class="sym-table"><thead><tr><th>Name</th><th>Type</th><th>Init Value</th></tr></thead><tbody>${
+    syms.map(s=>`<tr><td style="color:var(--btn);font-weight:600">${escHtml(s.name)}</td><td class="sym-${s.type}">${s.type}</td><td style="color:var(--muted)">${escHtml(s.value)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+/* ── TAB SWITCHING ── */
+function switchTab(name) {
+  document.querySelectorAll('.tab,.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='tokens'&&window._lastTokens) renderTokens(window._lastTokens);
+  if(name==='symbols'&&window._lastTokens) renderSymbolTable(buildSymbolTable(window._lastTokens));
+}
+
+/* ── PIPELINE ── */
+const STEPS=['pip-lex','pip-parse','pip-ast','pip-codegen','pip-gcc','pip-exec'];
+function resetPipeline(){STEPS.forEach(id=>document.getElementById(id).classList.remove('active','done','error'));}
+function animatePipeline(upTo,hasError){
+  return new Promise(resolve=>{
+    let i=0;
+    const tick=()=>{
+      if(i>0){const prev=document.getElementById(STEPS[i-1]);prev.classList.remove('active');if(i-1===upTo&&hasError)prev.classList.add('error');else prev.classList.add('done');}
+      if(i<=upTo){document.getElementById(STEPS[i]).classList.add('active');i++;setTimeout(tick,200);}else{resolve();}
+    };tick();
+  });
+}
+
+/* ── C HIGHLIGHT ── */
+function highlightC(code) {
+  const kwRe=/\b(int|float|char|return|void|if|else|while|for|include|define|main|printf)\b/g;
+  const strRe=/"[^"]*"/g; const comRe=/\/\*[\s\S]*?\*\//g; const numRe=/\b(\d+\.?\d*f?)\b/g;
+  return code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(comRe,m=>`<span class="c-comment">${m}</span>`)
+    .replace(strRe,m=>`<span class="c-string">${m}</span>`)
+    .replace(kwRe, m=>`<span class="c-keyword">${m}</span>`)
+    .replace(numRe,m=>`<span class="c-number">${m}</span>`);
+}
+
+/* ── AST COLORIZE ── */
+function colorizeAST(text) {
+  return text.split('\n').map(line=>{
+    if(/^\s*(VarDecl|Assign|Print|BinOp|Program)/.test(line)) return `<span class="ast-node">${escHtml(line)}</span>`;
+    if(/^\s*(IntLit|FloatLit|StrLit|Ident)/.test(line)) return `<span class="ast-leaf">${escHtml(line)}</span>`;
+    return `<span class="ast-line">${escHtml(line)}</span>`;
+  }).join('\n');
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ── COMPILE ── */
+async function runCompiler() {
+  const source=editor.value;
+  const btn=document.getElementById('runBtn'),icon=document.getElementById('runIcon'),label=document.getElementById('runLabel');
+  btn.classList.add('loading');icon.innerHTML='<span class="spinner"></span>';label.textContent='COMPILING…';
+  resetPipeline();
+  document.getElementById('outputStatus').textContent='compiling…';
+  document.getElementById('outputStatus').className='';
+  const t0=Date.now();
+  try {
+    const resp=await fetch('/compile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})});
+    const data=await resp.json();
+    const elapsed=Date.now()-t0;
+    document.getElementById('metTime').textContent=elapsed+'ms';
+    const stageMap={dsl_compile:1,gcc:4,success:5};
+    const failStep=stageMap[data.stage]??0;
+    const hasError=!!data.error;
+    await animatePipeline(hasError?failStep:5,hasError);
+
+    const astEl=document.getElementById('tab-ast');
+    if(data.ast) astEl.innerHTML=`<pre style="font-family:'IBM Plex Mono',monospace;font-size:.75rem">${colorizeAST(data.ast)}</pre>`;
+    else astEl.innerHTML=`<div class="placeholder"><span class="icon">🌳</span>No AST available</div>`;
+
+    const genEl=document.getElementById('tab-gen');
+    if(data.generated_c) genEl.innerHTML=`<pre style="font-family:'IBM Plex Mono',monospace;font-size:.78rem">${highlightC(data.generated_c)}</pre>`;
+    else genEl.innerHTML=`<div class="placeholder"><span class="icon">⚙️</span>No C generated</div>`;
+
+    if(window._lastTokens){renderTokens(window._lastTokens);renderSymbolTable(buildSymbolTable(window._lastTokens));}
+
+    const outEl=document.getElementById('output-content');
+    if(data.error){
+      outEl.innerHTML=`<div class="error-box"><div class="err-title">⚠ ${data.stage==='dsl_compile'?'Compiler Error':'GCC Error'}</div>${escHtml(data.error)}</div>`;
+      document.getElementById('outputStatus').textContent='✗ error';
+      document.getElementById('outputStatus').className='status-err';
+    } else {
+      const lines=(data.output||'').split('\n').filter(l=>l!=='').map(l=>`<span class="out-line">❯ ${escHtml(l)}</span>`).join('\n');
+      outEl.innerHTML=`<pre>${lines}</pre>`;
+      if(data.stderr) outEl.innerHTML+=`<pre style="color:var(--muted);margin-top:.5rem">${escHtml(data.stderr)}</pre>`;
+      document.getElementById('outputStatus').textContent='✓ success';
+      document.getElementById('outputStatus').className='status-ok';
+    }
+    document.getElementById('execTime').textContent=`${elapsed}ms`;
+    document.getElementById('outputMeta').textContent='dslc → gcc → exec';
+  } catch(err) {
+    document.getElementById('output-content').innerHTML=`<div class="error-box"><div class="err-title">Network Error</div>${escHtml(err.message)}</div>`;
+    document.getElementById('outputStatus').textContent='network error';
+  } finally {
+    btn.classList.remove('loading');icon.textContent='▶';label.textContent='COMPILE & RUN';
+  }
+}
+
+function clearAll() {
+  editor.value='';
+  ['tab-ast','tab-gen','tab-tokens','tab-symbols'].forEach(id=>{
+    document.getElementById(id).innerHTML=`<div class="placeholder"><span class="icon">—</span>Run compiler to populate</div>`;
+  });
+  document.getElementById('output-content').innerHTML=`<div class="placeholder"><span class="icon">💻</span>Run your DSL program to see output</div>`;
+  document.getElementById('outputStatus').textContent='idle';
+  document.getElementById('outputStatus').className='';
+  document.getElementById('execTime').textContent='';
+  document.getElementById('metTime').textContent='—';
+  document.getElementById('metTokens').textContent='—';
+  document.getElementById('metVars').textContent='—';
+  window._lastTokens=null;
+  resetPipeline(); updateLineNums(); editor.focus();
+}
+
+// Init
+liveTokenise();
+</script>
+</body>
+</html>
